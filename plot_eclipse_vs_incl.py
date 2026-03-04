@@ -9,8 +9,8 @@ os.makedirs("outputs", exist_ok=True)
 plt.style.use('dark_background')
 
 # Parameters
-orbits = 50
-divisor = 3
+orbits = 1000
+divisor = 2
 
 a_p, M_p = 1.0e11, 2.0e30
 omega_p, w_p, i_p, v0_p = 0., 0., 0., 0.
@@ -31,10 +31,21 @@ incls, counts_smp = count_eclipse_incl_numba_cuda_chunked(a_p, M_p, omega_p, w_p
                        a_m, M_m, omega_m, w_m, incls,
                        v0_m, r_p, ts, chunk_size=2048)
 compute_elapsed = time.perf_counter() - script_start
+incls_deg = np.rad2deg(incls)
 
-path = 'outputs/inclination_vs_transits.png'
+data_path = f'outputs/inclination_vs_transits_{orbits}.npz'
+np.savez(data_path,
+         incls_deg=incls_deg,
+         counts_smp=counts_smp,
+         orbits=np.float64(orbits),
+         divisor=np.float64(divisor),
+         a_p=np.float64(a_p), M_p=np.float64(M_p),
+         a_m=np.float64(a_m), M_m=np.float64(M_m),
+         r_p=np.float64(r_p))
+
+path = f'outputs/inclination_vs_transits_{orbits}.png'
 fig, ax = plt.subplots(figsize=(10, 6))
-ax.plot(incls, counts_smp, color='#ff6b6b', lw=2, label='moon eclipse')
+ax.plot(incls_deg, counts_smp, color='#ff6b6b', lw=2, label='moon eclipse')
 ax.set_xlabel('Moon orbital inclination', fontsize=13)
 ax.set_ylabel('Eclipses per orbit', fontsize=13)
 ax.set_title('Moon Inclination vs Eclipse Count', fontsize=15)
@@ -46,6 +57,7 @@ plt.savefig(path, dpi=150)
 plt.close()
 total_elapsed = time.perf_counter() - script_start
 
+print(f"Data saved to:  {data_path}")
 print(f"Graph saved to: {path}")
 print(f"Compute time: {compute_elapsed:.3f} s")
 print(f"Total time: {total_elapsed:.3f} s")

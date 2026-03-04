@@ -9,8 +9,8 @@ os.makedirs("outputs", exist_ok=True)
 plt.style.use('dark_background')
 
 # Parameters
-orbits = 50
-divisor = 3
+orbits = 1000
+divisor = 2
 
 a_p, M_p = 1.0e11, 2.0e30
 omega_p, w_p, i_p, v0_p = 0., 0., 0., 0.
@@ -38,14 +38,27 @@ p_hat = 1 - np.exp(-lambda_hat)
 
 # N_95 = ln(0.05) / ln(1 - p)
 with np.errstate(divide='ignore', invalid='ignore'):
-    N95 = np.where(p_hat >= 1, 1,
-           np.where(p_hat <= 0, np.inf,
-                    np.log(0.05) / np.log(1 - p_hat)))
-
+    N95 = np.where(p_hat >= 1 - 1e-12, 1,
+           np.where(p_hat <= 1e-15, np.inf,
+                    np.log(0.05) / np.log1p(-p_hat)))
+    
+N95 = np.maximum(N95, 1)
 incls_deg = np.rad2deg(incls)
 
+data_path = f'outputs/inclination_vs_N95_{orbits}.npz'
+np.savez(data_path,
+         incls_deg=incls_deg,
+         counts_smp=counts_smp,
+         p_hat=p_hat,
+         N95=N95,
+         orbits=np.float64(orbits),
+         divisor=np.float64(divisor),
+         a_p=np.float64(a_p), M_p=np.float64(M_p),
+         a_m=np.float64(a_m), M_m=np.float64(M_m),
+         r_p=np.float64(r_p))
+
 # Plot
-path = 'outputs/inclination_vs_N95.png'
+path = f'outputs/inclination_vs_N95_{orbits}.png'
 fig, ax = plt.subplots(figsize=(10, 6))
 valid = np.isfinite(N95) & (N95 > 0)
 ax.plot(incls_deg[valid], N95[valid], color='#ff6b6b', lw=2, label='$N_{95}$')
@@ -60,4 +73,5 @@ plt.tight_layout()
 plt.savefig(path, dpi=150)
 plt.close()
 
+print(f"Data saved to:  {data_path}")
 print(f"Graph saved to: {path}")

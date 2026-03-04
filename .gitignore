@@ -1,2 +1,13 @@
+# Output directories
+output/
 outputs/
+
+# Python cache
 __pycache__/
+*.py[cod]
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Slurm job output files
+*.out
