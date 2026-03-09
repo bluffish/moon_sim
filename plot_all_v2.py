@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from utils.orbit import *
 from kernels.orbit_numba_chunked import *
 
-parser = argparse.ArgumentParser(description='Plot eclipse count and N95 vs inclination')
+parser = argparse.ArgumentParser(description='Plot eclipse count and N95 (12h windows) vs inclination')
 
 # Simulation parameters
 parser.add_argument('--orbits', type=int, default=1000)
@@ -32,7 +32,7 @@ parser.add_argument('--v0-m', type=float, default=0.0)
 
 # Output name
 parser.add_argument('--name', type=str, default=None,
-                    help='Base name for output files (default: inclination_vs_all_{orbits})')
+                    help='Base name for output files (default: inclination_vs_all_v2_{orbits})')
 
 args = parser.parse_args()
 
@@ -44,7 +44,7 @@ r_p = args.r_p
 a_m, M_m = args.a_m, args.M_m
 omega_m, w_m, v0_m = args.omega_m, args.w_m, args.v0_m
 
-name = args.name or f'inclination_vs_all_{orbits}'
+name = args.name or f'inclination_vs_all_v2_{orbits}'
 data_path = f'outputs/{name}.npz'
 plot_path = f'outputs/{name}.png'
 
@@ -64,25 +64,26 @@ incls, counts_smp = count_eclipse_incl_numba_cuda_chunked(
 
 compute_elapsed = time.perf_counter() - script_start
 
-# N95 calculation
-lambda_hat = counts_smp # number of eclispes per orbit
-p_hat = 1 - np.exp(-lambda_hat) # 1 - e^(-\lambda)
+# N95 per 12-hour observing window
+P_planet = get_period(a_p, M_p)
+window_12h = 48.0 * 3600.0  # seconds
+lambda_12h = counts_smp * (window_12h / P_planet)
+p_12h = 1 - np.exp(-lambda_12h)
 with np.errstate(divide='ignore', invalid='ignore'):
-    N95 = np.where(p_hat >= 1 - 1e-12, 1,
-           np.where(p_hat <= 1e-15, np.inf,
-                    np.log(0.05) / np.log1p(-p_hat))) 
-    
-# we are solving for .05 = e^(-lambda)
+    N95_12h = np.where(p_12h >= 1 - 1e-12, 1,
+               np.where(p_12h <= 1e-15, np.inf,
+                        np.log(0.05) / np.log1p(-p_12h)))
+N95_12h = np.maximum(N95_12h, 1)
 
-N95 = np.maximum(N95, 1)
 incls_deg = np.rad2deg(incls)
 
 # Save data
 np.savez(data_path,
          incls_deg=incls_deg,
          counts_smp=counts_smp,
-         p_hat=p_hat,
-         N95=N95,
+         lambda_12h=lambda_12h,
+         p_12h=p_12h,
+         N95_12h=N95_12h,
          orbits=np.float64(orbits),
          divisor=np.float64(divisor),
          a_p=np.float64(a_p), M_p=np.float64(M_p),
@@ -99,12 +100,12 @@ ax1.grid(alpha=0.2)
 ax1.set_yscale('log')
 ax1.legend(frameon=False, fontsize=11)
 
-valid = np.isfinite(N95) & (N95 > 0)
-ax2.plot(incls_deg[valid], N95[valid], color='#ff6b6b', lw=2, label='$N_{95}$')
+valid = np.isfinite(N95_12h) & (N95_12h > 0)
+ax2.plot(incls_deg[valid], N95_12h[valid], color='#ff6b6b', lw=2, label='$N_{95}$')
 ax2.set_xlabel('Moon orbital inclination', fontsize=13)
-ax2.set_ylabel('Orbits needed for 95% chance of >=1 eclipse', fontsize=13)
-ax2.set_title('How Many Orbits Until an Eclipse? ($N_{95}$)\n'
-              f'{int(orbits)} orbits', fontsize=15)
+ax2.set_ylabel('12-hour windows needed for 95% chance of >=1 eclipse', fontsize=13)
+ax2.set_title('How Many 12-Hour Observations Until an Eclipse? ($N_{95}$)\n'
+              f'{int(orbits)} orbits simulated', fontsize=15)
 ax2.grid(alpha=0.2)
 ax2.set_yscale('log')
 ax2.legend(frameon=False, fontsize=11)
