@@ -66,9 +66,9 @@ compute_elapsed = time.perf_counter() - script_start
 
 # N95 per 12-hour observing window
 P_planet = get_period(a_p, M_p)
-window_12h = 48.0 * 3600.0  # seconds
-lambda_12h = counts_smp * (window_12h / P_planet)
-p_12h = 1 - np.exp(-lambda_12h)
+window = 48.0 * 3600.0  # seconds
+lambda_hat = counts_smp * (window / P_planet)
+p_12h = 1 - np.exp(-lambda_hat)
 with np.errstate(divide='ignore', invalid='ignore'):
     N95_12h = np.where(p_12h >= 1 - 1e-12, 1,
                np.where(p_12h <= 1e-15, np.inf,
@@ -81,7 +81,7 @@ incls_deg = np.rad2deg(incls)
 np.savez(data_path,
          incls_deg=incls_deg,
          counts_smp=counts_smp,
-         lambda_12h=lambda_12h,
+         lambda_12h=lambda_hat,
          p_12h=p_12h,
          N95_12h=N95_12h,
          orbits=np.float64(orbits),
